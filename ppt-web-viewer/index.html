@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Web Viewer</title>
+  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; font-family: "Segoe UI", system-ui, sans-serif; background: #fff; }
+    #app { display: flex; flex-direction: column; height: 100%; }
+
+    /* Thanh nhập URL */
+    #bar { display: flex; gap: 6px; padding: 6px; background: #f3f3f3; border-bottom: 1px solid #ddd; align-items: center; }
+    #bar.hidden { display: none; }
+    #url { flex: 1; padding: 6px 8px; border: 1px solid #bbb; border-radius: 4px; font-size: 13px; }
+    button { padding: 6px 10px; border: 1px solid #bbb; border-radius: 4px; background: #fff; cursor: pointer; font-size: 13px; }
+    button.primary { background: #c43e1c; color: #fff; border-color: #c43e1c; }
+    button:hover { filter: brightness(0.95); }
+
+    #frameWrap { position: relative; flex: 1; }
+    iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+
+    #empty { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #666; text-align: center; padding: 20px; }
+    #empty h2 { margin: 0 0 6px; color: #333; font-weight: 600; }
+    #msg { font-size: 12px; color: #a33; padding: 0 8px; }
+
+    /* Nút bánh răng nhỏ để hiện lại thanh URL */
+    #gear { position: absolute; top: 4px; right: 4px; z-index: 5; opacity: .25; padding: 2px 6px; }
+    #gear:hover { opacity: 1; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="bar">
+      <input id="url" type="url" placeholder="Nhập địa chỉ web, ví dụ: https://www.wikipedia.org" />
+      <button id="go" class="primary">Hiển thị</button>
+      <button id="reload" title="Tải lại">⟳</button>
+      <button id="hide" title="Ẩn thanh địa chỉ">Ẩn</button>
+    </div>
+    <div id="msg"></div>
+    <div id="frameWrap">
+      <button id="gear" title="Hiện thanh địa chỉ">⚙</button>
+      <div id="empty">
+        <h2>Web Viewer</h2>
+        <div>Nhập URL (bắt đầu bằng https://) rồi bấm <b>Hiển thị</b>.</div>
+      </div>
+      <iframe id="frame" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation"
+              allow="fullscreen; autoplay; encrypted-media" referrerpolicy="no-referrer-when-downgrade"></iframe>
+    </div>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const KEY_URL = "webviewer_url";
+    const KEY_BAR = "webviewer_barHidden";
+    let settings = null; // Office document settings (lưu theo từng add-in trên slide)
+
+    function normalize(u) {
+      u = (u || "").trim();
+      if (!u) return "";
+      if (!/^https?:\/\//i.test(u)) u = "https://" + u;
+      return u;
+    }
+
+    function show(url) {
+      $("msg").textContent = "";
+      if (!url) { $("frame").removeAttribute("src"); $("empty").style.display = "flex"; return; }
+      if (url.startsWith("http://")) {
+        $("msg").textContent = "Lưu ý: PowerPoint thường chặn trang http://, nên dùng https://.";
+      }
+      $("empty").style.display = "none";
+      $("frame").src = url;
+    }
+
+    function save(key, value) {
+      if (!settings) return;
+      settings.set(key, value);
+      settings.saveAsync();
+    }
+
+    function setBarHidden(hidden) {
+      $("bar").classList.toggle("hidden", hidden);
+      $("gear").style.display = hidden ? "block" : "none";
+      save(KEY_BAR, hidden);
+    }
+
+    function go() {
+      const url = normalize($("url").value);
+      $("url").value = url;
+      save(KEY_URL, url);
+      show(url);
+    }
+
+    $("go").onclick = go;
+    $("url").addEventListener("keydown", (e) => { if (e.key === "Enter") go(); });
+    $("reload").onclick = () => show(normalize($("url").value));
+    $("hide").onclick = () => setBarHidden(true);
+    $("gear").onclick = () => setBarHidden(false);
+    $("gear").style.display = "none";
+
+    Office.onReady(() => {
+      settings = Office.context.document.settings;
+      const url = settings.get(KEY_URL) || "";
+      const hidden = !!settings.get(KEY_BAR);
+      $("url").value = url;
+      show(url);
+      $("bar").classList.toggle("hidden", hidden && !!url);
+      $("gear").style.display = hidden && url ? "block" : "none";
+    });
+  </script>
+</body>
+</html>
